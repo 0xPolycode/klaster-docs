@@ -1,0 +1,251 @@
+# Multi-Chain Operations with Klaster SDK: Swap, Bridge, and Supply
+
+In this guide, we'll demonstrate how to use Klaster SDK to perform a series of operations across multiple blockchains in a single Interchain Transaction (iTx). We'll execute the following actions:
+
+1. Swap USDT for USDC on Optimism
+2. Bridge USDC from Optimism to Base using Across Protocol
+3. Supply USDC to AAVE on Base
+
+All of these actions will be encoded as a single iTx, with gas fees paid in USDT on Optimism.
+
+## Prerequisites
+
+- Klaster SDK installed: `npm install klaster-sdk`
+- Viem installed: `npm install viem`
+- Access to Optimism and Base networks
+- Sufficient USDT on Optimism for the swap and gas fees
+- Basic understanding of DeFi operations (swapping, bridging, lending)
+
+::::steps
+
+### Setup
+
+First, let's set up our environment and initialize Klaster SDK:
+
+```typescript
+import { initKlaster, Config, InterchainTransaction, ChainTokenPair } from 'klaster-sdk';
+import { encodeFunctionData, parseAbi, createPublicClient, http } from 'viem';
+import { optimism, base } from 'viem/chains';
+
+const config: Config = {
+  nodeUrl: 'https://your-klaster-node-url.com',
+  masterAddress: '0xYourMasterWalletAddress'
+};
+
+const klasterSDK = initKlaster(config);
+
+// Set up viem clients for Optimism and Base
+const optimismClient = createPublicClient({
+  chain: optimism,
+  transport: http()
+});
+
+const baseClient = createPublicClient({
+  chain: base,
+  transport: http()
+});
+```
+
+### Encode USDT to USDC Swap on Optimism
+
+Let's encode the swap transaction using a popular DEX on Optimism (e.g., Uniswap V3):
+
+```typescript
+const uniswapRouterAddress = '0xE592427A0AEce92De3Edee1F18E0157C05861564'; // Uniswap V3 Router on Optimism
+const usdtAddress = '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58'; // USDT on Optimism
+const usdcAddress = '0x7F5c764cBc14f9669B88837ca1490cCa17c31607'; // USDC on Optimism
+
+const swapABI = parseAbi([
+  'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) external returns (uint256 amountOut)'
+]);
+
+const swapParams = {
+  tokenIn: usdtAddress,
+  tokenOut: usdcAddress,
+  fee: 500, // 0.05% fee tier
+  recipient: config.masterAddress,
+  deadline: BigInt(Math.floor(Date.now() / 1000) + 3600), // 1 hour from now
+  amountIn: BigInt(1000000), // 1 USDT (assuming 6 decimals)
+  amountOutMinimum: BigInt(990000), // Minimum USDC to receive (adjust as needed)
+  sqrtPriceLimitX96: BigInt(0)
+};
+
+const swapData = encodeFunctionData({
+  abi: swapABI,
+  functionName: 'exactInputSingle',
+  args: [swapParams]
+});
+
+const swapTransaction = {
+  to: uniswapRouterAddress,
+  data: swapData,
+  value: BigInt(0),
+  gasLimit: BigInt(300000) // Adjust as needed
+};
+```
+
+### Encode USDC Bridging from Optimism to Base using Across API
+
+For bridging USDC from Optimism to Base, we'll use the Across API to get the necessary information for the bridge transaction. First, we need to install the axios library to make HTTP requests:
+
+```bash
+npm install axios
+```
+
+Now, let's update our imports and add the bridging logic:
+
+```typescript
+import axios from 'axios';
+import { encodeFunctionData, parseAbi, parseUnits } from 'viem';
+
+// ... (previous code remains the same)
+
+// Step 2: Encode USDC Bridging from Optimism to Base
+async function encodeBridgeTransaction(amountTobridge: bigint) {
+  const acrossBridgeAddress = '0x9295ee1d8C5b022Be115A2AD3c30C72E34e7F096'; // Across Bridge on Optimism
+  const usdcAddress = '0x7F5c764cBc14f9669B88837ca1490cCa17c31607'; // USDC on Optimism
+
+  // Make a request to the Across API to get a quote
+  const quoteResponse = await axios.get('https://across.to/api/quote', {
+    params: {
+      fromChain: optimism.id,
+      toChain: base.id,
+      fromToken: usdcAddress,
+      toToken: usdcAddress, // Same as fromToken for USDC
+      amount: amountTobridge.toString(),
+      fromAddress: config.masterAddress,
+      toAddress: config.masterAddress,
+      enableBoost: false, // Set to true if you want to use Across Boost feature
+    }
+  });
+
+  const quoteData = quoteResponse.data;
+
+  // Encode the bridge transaction using the quote data
+  const bridgeABI = parseAbi([
+    'function deposit(uint256 amount, address recipient, uint256 destinationChainId, address originToken, uint256 relayerFeePct, address depositor) external payable returns (uint256)'
+  ]);
+
+  const bridgeData = encodeFunctionData({
+    abi: bridgeABI,
+    functionName: 'deposit',
+    args: [
+      BigInt(quoteData.gasFeeTotal.amount), // Total amount including fees
+      config.masterAddress,
+      BigInt(base.id),
+      usdcAddress,
+      parseUnits(quoteData.relayerFee.percentage, 18), // Convert percentage to proper format
+      config.masterAddress
+    ]
+  });
+
+  return {
+    to: acrossBridgeAddress,
+    data: bridgeData,
+    value: BigInt(0),
+    gasLimit: BigInt(500000) // Adjust as needed
+  };
+}
+
+// Use this function in your main execution flow
+const bridgeTransaction = await encodeBridgeTransaction(BigInt(990000)); // Amount to bridge
+```
+
+This updated code does the following:
+
+1. We import `axios` to make HTTP requests to the Across API.
+2. We create an `encodeBridgeTransaction` function that takes the amount to bridge as a parameter.
+3. Inside this function, we make a GET request to the Across API's quote endpoint, providing necessary parameters such as the source and destination chains, token addresses, and amount.
+4. We use the data from the API response to encode the bridge transaction, ensuring we include the correct fees and parameters as returned by the Across API.
+5. The function returns the encoded transaction object, which can be used in our Interchain Transaction.
+
+When using this in your main execution flow, you would replace the previous `bridgeTransaction` with a call to this new asynchronous function.
+
+Remember to handle potential errors from the API call and adjust the gas limit as needed based on current network conditions.
+
+This approach ensures that you're using the most up-to-date information from Across for your bridge transaction, including current fees and any other parameters that might be dynamically determined by their API.
+
+### Encode USDC Supply to AAVE on Base
+
+Finally, let's encode the transaction to supply USDC to AAVE on Base:
+
+```typescript
+const aavePoolAddress = '0xA238Dd80C259a72e81d7e4664a9801593F98d1c5'; // AAVE Pool on Base
+const usdcAddressOnBase = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // USDC on Base
+
+const aaveABI = parseAbi([
+  'function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external'
+]);
+
+const supplyData = encodeFunctionData({
+  abi: aaveABI,
+  functionName: 'supply',
+  args: [usdcAddressOnBase, BigInt(980000), config.masterAddress, 0] // Adjust amount based on expected bridged amount
+});
+
+const supplyTransaction = {
+  to: aavePoolAddress,
+  data: supplyData,
+  value: BigInt(0),
+  gasLimit: BigInt(400000) // Adjust as needed
+};
+```
+
+### Create and Execute the Interchain Transaction
+
+Now, let's combine all these transactions into a single Interchain Transaction:
+
+```typescript
+const itx: InterchainTransaction = {
+  actions: [
+    {
+      txs: [swapTransaction, bridgeTransaction],
+      chainId: optimism.id
+    },
+    {
+      txs: [supplyTransaction],
+      chainId: base.id
+    }
+  ],
+  paymentInfo: await klasterSDK.encodeTxFee('optimism-usdt' as ChainTokenPair)
+};
+
+async function executeMultiChainOperations() {
+  try {
+    // Get a quote
+    const quote = await klasterSDK.getQuote(itx);
+
+    // Sign the quote (implement this based on your signing method)
+    const signedHash = await signQuote(quote.itxHash);
+
+    // Execute the transaction
+    const result = await klasterSDK.execute(quote, signedHash);
+
+    console.log('Multi-chain operations executed! Transaction Hash:', result.iTxHash);
+  } catch (error) {
+    console.error('Error executing multi-chain operations:', error);
+  }
+}
+
+executeMultiChainOperations();
+```
+
+::::
+
+## Conclusion
+
+In this guide, we've demonstrated how to use Klaster SDK to perform complex multi-chain operations in a single Interchain Transaction. We've encoded transactions to swap tokens on Optimism, bridge them to Base, and supply them to AAVE, all while paying gas fees with USDT on Optimism.
+
+Key points to remember:
+- Ensure you have sufficient USDT on Optimism for the swap and gas fees.
+- The transaction amounts and gas limits may need adjustment based on current market conditions and gas prices.
+- Always check the quote before executing to ensure the gas costs are acceptable.
+- This example assumes direct bridging compatibility. In a real-world scenario, you might need additional steps or approvals.
+
+## Next Steps
+
+- Learn how to [monitor complex transaction status](/docs/guides/multi-chain-tx-status) across chains.
+- Explore [error handling and transaction revertion](/docs/guides/error-handling) in multi-chain transactions.
+- Understand [gas price optimization](/docs/advanced/cross-chain-gas-optimization) for multi-chain operations.
+
+Happy multi-chain transacting with Klaster SDK!

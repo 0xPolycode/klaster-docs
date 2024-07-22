@@ -1,0 +1,174 @@
+# Get started
+
+This is the documentation for an SDK for intercting with the Klaster Protocol. The Klaster protocol
+enables trustless execution of multiple transactions across multiple blockchains, with a single off-chain
+signature.
+
+This enables developers to build chain abstracted flows and dApps with ease!
+
+::::steps
+
+### Install the Klaster SDK
+
+```bash
+npm install klaster-sdk viem
+```
+
+### Fetch the EOA Address
+
+Klaster has extended the ERC4337 Smart Contract Accounts stack to enable multichain smart contract accounts. Klaster
+derives the address of the Multichain Smart Contract Account through the EOA address of the connected wallet and an
+arbitrary salt parameter.
+
+Fetch the address by using one of the ethereum frameworks, or by invoking the injected `window.ethereum` object directly.
+
+:::code-group
+
+```ts [viem]
+const client = createWalletClient({
+  transport: custom((window as any).ethereum),
+});
+const [address] = await client.getAddresses();
+```
+
+```ts [ethers]
+await window.ethereum.request({ method: 'eth_requestAccounts' });
+const provider = new ethers.providers.Web3Provider(window.ethereum);
+const signer = provider.getSigner();
+return await signer.getAddress();
+```
+
+```ts [vanilla]
+const client = createWalletClient({
+  transport: custom((window as any).ethereum),
+});
+const [address] = await client.getAddresses();
+```
+
+:::
+
+### Initialize the Klaster SDK
+
+In order to initialize the Klaster SDK, you need to provide the URL of a Klaster node and the EOA address
+you fetched.
+
+```ts [Initialize Klaster]
+const sdk = initKlaster({
+  masterAddress: address,
+  nodeUrl: "https://klaster-node.polycode.sh/v2/",
+});
+```
+
+:::info
+When initializing the Klaster SDK, you don't need to specify the `salt` parameter which is used to derive the Klaster
+Multichain Smart Contract Account. The SDK uses the salt `"0"` by default. If you wish, you can change the salt by
+calling the `changeAccountSalt(salt: string)` function on the SDK object.
+:::
+
+For the URL of a Klaster Node, you can use the one hosted by Polycode:
+
+```md [Klaster Node URL]
+https://klaster-node.polycode.sh/v2/
+```
+
+### Prepare the Multichain Smart Contract Account
+
+Before we are ready to execute transactions through Klaster, we must transfer some funds to the Klaster Multichain
+Smart Contract Account. In order to simplify this example, we will transfer the use the same token we are interacting
+with to pay for gas. In order to see supported tokens, check [Supported Networks and Tokens](/supported-networks-tokens).
+
+Klaster SDK has several utility functions. One of those is a function which can encode an ERC20 transfer transaction for
+supported tokens. We'll use it to transfer funds from our EOA to our Multichain Smart Contract Account.
+
+```ts [Transfer tokens to MSCA]
+// Fetch the mulitchain smart contract account
+const mSCA = await this.sdk.getMultichainAccount()
+
+const sendErc20Tx = buildTransferERC20FromEoaTx({
+    recipient: mSCA.address,
+    amount: parseUnits("1", 6),
+    chainId: optimism.id,
+    token: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85'
+})
+
+client.sendTransaction({
+    chain: optimism,
+    to: this.address,
+    data: sendErc20Tx.data as any,
+    gas: sendErc20Tx.gasLimit,
+    account: this.address
+})
+```
+
+:::info
+KlasterSDK has a built-in utility function for executing the ERC20 transfer and Interchain Transaction in a single call. We
+will explore that function further in the docs.
+:::
+
+### Encode Your First Interchain Transaction
+
+There are two steps to encoding an Interchain Transaction
+
+1. Creating all _child_ transactions as [RawTransaction](/reference/#rawtransaction) objects
+2. Encoding an [InterchainTransaction](/reference/#interchaintransaction) object with all the child RawTransaction objects and [ApiPaymentData](/reference/#apipaymentdata)
+
+```ts [Execute Transaction]
+// Create a RawTransaction object
+const transferErc20Tx = encodeTx({
+  to: usdcOptimism,
+  // Klaster SDK is compatible with all existing Ethereum tooling. This is an example of using
+  // viem to create an ERC20 transfer function call.
+  data: encodeFunctionData({
+    abi: erc20Abi,
+    functionName: 'transfer',
+    args: [
+      address,
+      parseUnits("1", 6)
+    ]
+  }),
+  gasLimit: 60000n,
+  value: 0n
+})
+
+// Here we show a simple case where a single transaction on a single chain is 
+// executed
+const iTx = encodeItx({
+  actions: [{ txs: [transferErc20Tx], chainId: optimism.id }],
+  paymentInfo: await encodeTxFee('optimism-usdc')
+})
+```
+
+### Get a Transaction Quote
+
+After you have encoded your Interchain Transaction, use it to fetch a Quote from the Klaster protocol.
+The quote will contain information on the cost of the execution, expressed in the tokens you requested in the `paymentInfo`,
+as well as a commitment by the Klaster Protocol to execute the transaction on your behalf.
+
+```ts
+// Fetch the quote from the Klaster network
+const quote = await sdk.getQuote(iTx)
+```
+
+### Sign and Execute the Interchain Transaction
+
+```ts
+// Sign the message, without using EIP191 prefix
+const signed = await client.signMessage({
+  account: address,
+  message: toHex(stringToBytes(quote.itxHash))
+})
+const hash = await sdk.execute(quote, signed)
+```
+
+:::info
+`viem` will automatically prefix every signed message with an EIP191 prefix, so use the strategy 
+outlined in the above code example (`toHex(stringToBytes(hash))`) to prevent `viem` from prefixing 
+the message.
+:::
+
+### Track the transaction on KlasterScan
+
+Visit [KlasterScan](https://explorer.klaster.io) and paste the iTx hash into the field to see the execution status
+of all of the child transactions.
+
+::::

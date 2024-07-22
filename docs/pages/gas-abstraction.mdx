@@ -1,0 +1,135 @@
+# Cross-Chain Gas Payment with Klaster SDK and Viem
+
+In this guide, we'll walk through the process of executing a transaction on one chain while paying for gas on another using Klaster SDK, with viem for transaction encoding. Specifically, we'll mint an NFT on Optimism and pay for the gas fees using tokens on Base.
+
+## Prerequisites
+
+- Klaster SDK installed: `npm install klaster-sdk`
+- Viem installed: `npm install viem`
+- A wallet with funds on Base for gas payment
+- Basic understanding of ERC721 (NFT) contracts
+
+::::steps
+
+### Setup
+
+First, let's set up our Klaster SDK instance and import necessary functions from viem:
+
+```ts
+import { initKlaster, Config } from 'klaster-sdk';
+import { encodeFunctionData, parseAbi } from 'viem';
+import { optimism } from 'viem/chains';
+
+const config: Config = {
+  nodeUrl: 'https://your-klaster-node-url.com',
+  masterAddress: '0xYourMasterWalletAddress'
+};
+
+const klasterSDK = initKlaster(config);
+```
+
+### Prepare the NFT Minting Transaction
+
+We'll prepare the transaction for minting an NFT on Optimism using viem to encode the function call.
+
+```typescript
+const nftContractAddress = '0xYourNFTContractAddressOnOptimism';
+const nftABI = parseAbi([
+  "function mint(address to) public"
+]);
+
+const mintData = encodeFunctionData({
+  abi: nftABI,
+  functionName: 'mint',
+  args: [klasterSDK.masterAddress]
+});
+
+const mintTransaction = {
+  to: nftContractAddress,
+  data: mintData,
+  value: BigInt(0), // Assuming minting is free
+  gasLimit: BigInt(300000) // Adjust as needed
+};
+```
+
+### Set Up Gas Payment on Base
+
+Now, we'll configure the gas payment to occur on Base. We'll use USDC for this example.
+
+```typescript
+const gasPaymentInfo = await klasterSDK.encodeTxFee('base-usdc');
+```
+
+### Create the Interchain Transaction
+
+Next, we'll create the Interchain Transaction (iTx) that combines our NFT minting action on Optimism with the gas payment on Base.
+
+```typescript
+import { InterchainTransaction } from 'klaster-sdk';
+
+const iTx = encodeItx({
+  actions: [
+    {
+      txs: [mintTransaction],
+      chainId: optimism.id
+    }
+  ],
+  paymentInfo: gasPaymentInfo
+})
+```
+
+### Get a Quote and Execute the Transaction
+
+Finally, we'll get a quote for our transaction and execute it.
+
+```typescript
+import { custom, createWalletClient } from 'viem';
+
+// Assuming you're using a browser wallet like MetaMask
+const walletClient = createWalletClient({
+  transport: custom(window.ethereum)
+});
+
+async function mintNFTWithCrossChainGas() {
+  try {
+    // Get a quote
+    const quote = await klasterSDK.getQuote(iTx);
+
+    // Sign the quote using viem
+    const [address] = await walletClient.getAddresses();
+    const signedHash = await walletClient.signMessage({
+      account: address,
+      message: quote.itxHash
+    });
+
+    // Execute the transaction
+    const result = await klasterSDK.execute(quote, signedHash);
+
+    console.log('NFT Minted! Transaction Hash:', result.iTxHash);
+  } catch (error) {
+    console.error('Error minting NFT:', error);
+  }
+}
+
+mintNFTWithCrossChainGas();
+```
+:::: 
+
+## Conclusion
+
+In this guide, we've demonstrated how to use Klaster SDK with viem to mint an NFT on Optimism while paying for gas on Base. This cross-chain gas payment feature allows for more flexible and efficient management of assets across different networks, and using viem provides a modern, type-safe way to interact with Ethereum.
+
+Key points to remember:
+- Ensure your wallet has sufficient USDC on Base for gas payment.
+- The `masterAddress` in your Klaster SDK config should be the address that will receive the minted NFT.
+- Viem is used for encoding transaction data and signing messages, providing better TypeScript support and performance.
+- Always check the quote before executing to ensure the gas costs are acceptable.
+
+For more advanced usage and detailed API references, check out the [Klaster SDK Documentation](/docs/klaster-sdk) and [Viem Documentation](https://viem.sh/).
+
+## Next Steps
+
+- Learn how to [monitor transaction status](/docs/guides/transaction-status) across chains.
+- Explore [batching multiple actions across multiple chains](/docs/guides/batch-transactions) in a single interchain transaction.
+
+Happy cross-chain transacting with Klaster SDK and viem!

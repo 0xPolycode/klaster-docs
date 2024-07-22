@@ -1,0 +1,121 @@
+# Getting Unified USDC Balance Across Multiple Chains
+
+This guide demonstrates how to use the `getUnifiedBalance` function from the Klaster SDK to retrieve a unified USDC balance across Optimism, Base, Polygon, Ethereum Mainnet, Scroll, Avalanche C-Chain, and Arbitrum One.
+
+## Prerequisites
+
+Before we begin, make sure you have the following installed and set up:
+
+- Klaster SDK
+- Viem library
+
+You can install these using npm:
+
+```bash
+npm install klaster-sdk viem
+```
+
+## Steps 
+
+::::steps
+### Import Required Dependencies
+
+First, let's import the necessary functions and types from Klaster SDK and Viem:
+
+```typescript
+import { createTokenMapping, getUnifiedBalance } from 'klaster-sdk';
+import { createPublicClient, http } from 'viem';
+import { 
+  mainnet, optimism, polygon, arbitrum, avalanche, base, scroll
+} from 'viem/chains';
+```
+
+### Set Up USDC Token Mapping
+
+Now, we'll create a token mapping for USDC across all the chains we're interested in:
+
+```typescript
+const usdcMapping = createTokenMapping([
+  { chain: mainnet.id, address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' }, // Ethereum Mainnet
+  { chain: optimism.id, address: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607' }, // Optimism
+  { chain: base.id, address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' }, // Base
+  { chain: polygon.id, address: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174' }, // Polygon
+  { chain: arbitrum.id, address: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8' }, // Arbitrum One
+  { chain: avalanche.id, address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E' }, // Avalanche C-Chain
+  { chain: scroll, address: '0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4' }, // Scroll 
+]);
+```
+
+::: warning Note
+Always verify token addresses before using them in your application, especially for newer or less established networks.
+:::
+
+### Initialize Public Clients
+
+We need to create public clients for each chain to interact with their respective networks:
+
+```typescript
+const clients = {
+  [mainnet.id]: createPublicClient({ chain: mainnet, transport: http() }),
+  [optimism.id]: createPublicClient({ chain: optimism, transport: http() }),
+  [base.id]: createPublicClient({ chain: base, transport: http() }),
+  [polygon.id]: createPublicClient({ chain: polygon, transport: http() }),
+  [arbitrum.id]: createPublicClient({ chain: arbitrum, transport: http() }),
+  [avalanche.id]: createPublicClient({ chain: avalanche, transport: http() }),
+  [scroll.id]: createPublicClient({ chain: scroll, transport: http() }),
+};
+```
+
+### Fetch Unified Balance
+
+Now we're ready to use the `getUnifiedBalance` function to fetch the unified USDC balance:
+
+```typescript
+async function fetchUnifiedUSDCBalance(address: `0x${string}`) {
+  try {
+    const result = await getUnifiedBalance({
+      mapping: usdcMapping,
+      address,
+      clients,
+    });
+
+    console.log(`Unified USDC Balance: ${result.amount} (${result.decimals} decimals)`);
+    return result;
+  } catch (error) {
+    console.error('Error fetching unified USDC balance:', error);
+    throw error;
+  }
+}
+
+// Usage
+const address = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e'; // Example address
+const balance = await fetchUnifiedUSDCBalance(address);
+```
+
+::::
+
+## Understanding the Result
+
+The `getUnifiedBalance` function returns an object with two properties:
+
+- `amount`: The total balance across all chains as a `bigint`.
+- `decimals`: The number of decimal places for the token (6 for USDC).
+
+To get the human-readable balance, you can divide the `amount` by 10^`decimals`:
+
+```typescript
+const humanReadableBalance = Number(result.amount) / Math.pow(10, result.decimals);
+console.log(`Human-readable balance: ${humanReadableBalance} USDC`);
+```
+
+## Considerations
+
+- **Gas Costs**: Fetching balances from multiple chains can be resource-intensive. Consider implementing caching or rate limiting in production environments.
+- **Network Issues**: Be prepared to handle network errors or timeouts when interacting with multiple chains.
+- **Token Consistency**: Ensure that the USDC implementation is consistent across all chains. Some chains might have wrapped or bridged versions of USDC with different characteristics.
+
+## Conclusion
+
+Using the `getUnifiedBalance` function from Klaster SDK, you can easily aggregate USDC balances across multiple chains. This can be particularly useful for cross-chain applications, portfolio tracking, or DeFi protocols that operate across multiple networks.
+
+Remember to always verify token addresses and chain IDs, especially when dealing with newer or less established networks. Happy cross-chain development!
