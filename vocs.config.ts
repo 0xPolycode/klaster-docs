@@ -2,12 +2,17 @@ import { defineConfig } from 'vocs'
 
 export default defineConfig({
   title: 'Klaster SDK Docs',
+  logoUrl: 'https://content.pstmn.io/9af7177c-4ec7-40e4-855b-214ea62aaf5f/a2xhc3Rlcl9ib2plLnBuZw==',
   description: 'Build chain abstracted flows and dApps with ease through Klaster Interchain Commitments. ',
   ogImageUrl: 'https://vocs.dev/api/og?logo=%https://content.pstmn.io/9af7177c-4ec7-40e4-855b-214ea62aaf5f/a2xhc3Rlcl9ib2plLnBuZw==&title=%Klaster&description=%Klaster',
   sidebar: [
     {
       text: 'Getting Started',
       link: '/getting-started',
+    },
+    {
+      text: 'Klaster Explained',
+      link: '/explainer'
     },
     {
       text: 'Concepts',
@@ -17,23 +22,23 @@ export default defineConfig({
       text: 'QuickStart Guides',
       items: [
         {
-          text: 'QuickStart: Multichain Flow',
-          link: '/multichain-across'
+          text: 'Multichain Flow',
+          link: '/quickstart/multichain-across'
         },
         {
-          text: 'QuickStart: Gas Abstraction',
-          link: '/gas-abstraction'
+          text: 'Gas Abstraction',
+          link: '/quickstart/gas-abstraction'
         },
         {
-          text: 'QuickStart: Unified Balance',
-          link: '/unified-balance'
+          text: 'Unified Balance',
+          link: '/quickstart/unified-balance'
+        },
+        {
+          text: 'Universal Deposit Address',
+          link: '/quickstart/universal-deposit-address'
         },
       ]
     },
-    // {
-    //   text: 'Gas Abstraction',
-    //   link: '/gas-abstraction'
-    // },
     {
       text: 'SDK Reference',
       items: [
@@ -144,5 +149,4 @@ export default defineConfig({
       link: 'https://github.com/0xPolycode'
     }
   ],
-  logoUrl: ""
 })

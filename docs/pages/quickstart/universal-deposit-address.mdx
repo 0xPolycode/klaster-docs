@@ -1,0 +1,191 @@
+# Creating a Universal Deposit Address and Cross-Chain NFT Purchase with Klaster SDK
+
+## Rationale
+
+Creating a universal deposit address enables the user to deposit funds from their wallet or CEX to _any_ wallet
+and your app to access them. 
+
+Some of the use cases can be:
+- One-click checkout flows
+- SocialFi onboarding
+- L2/L3 1-click onboarding
+
+## Setup
+
+First, let's set up our environment and initialize the Klaster SDK:
+
+```typescript
+import { initKlaster, Config, InterchainTransaction } from 'klaster-sdk';
+import { createPublicClient, http, parseUnits, encodeFunctionData } from 'viem';
+import { base } from 'viem/chains';
+import axios from 'axios';
+
+// Initialize Klaster SDK with your configuration
+const config: Config = {
+  nodeUrl: 'https://your-klaster-node-url.com',
+  masterAddress: '0xYourMasterWalletAddress'
+};
+
+const klasterSDK = initKlaster(config);
+```
+
+## Step 1: Create Universal Deposit Address
+
+```typescript
+// This function creates a universal deposit address for a user
+// It uses the user's EOA and a salt to derive a deterministic smart contract account
+async function createUniversalDepositAddress(userEOA: string) {
+
+  // getMultichainAccount derives a smart contract account that works across multiple chains
+  const universalAccount = await klasterSDK.getMultichainAccount(userEOA);
+  
+  // Return the address of the derived smart contract account
+  return universalAccount.address;
+}
+
+// Usage example
+const userEOA = '0x...'; // User's EOA address
+const depositAddress = await createUniversalDepositAddress(userEOA);
+console.log('Universal Deposit Address:', depositAddress);
+```
+
+## Step 2: Implement Buy NFT Function
+
+```typescript
+// Address of the NFT contract on Base
+const NFT_CONTRACT_ADDRESS = '0x...';
+// Price of the NFT in ETH (0.1 ETH in this example)
+const NFT_PRICE = parseUnits('0.1', 18);
+
+// This function encodes the transaction data for buying an NFT
+function encodeBuyNFTTransaction() {
+  // Encode the function call data for the 'buyNFT' function
+  const buyNFTData = encodeFunctionData({
+    abi: [{
+      inputs: [],
+      name: 'buyNFT',
+      outputs: [],
+      stateMutability: 'payable',
+      type: 'function'
+    }],
+    functionName: 'buyNFT',
+    args: []
+  });
+
+  // Return the transaction object
+  return {
+    to: NFT_CONTRACT_ADDRESS,
+    data: buyNFTData,
+    value: NFT_PRICE,
+    gasLimit: parseUnits('300000', 0) // Estimated gas limit, adjust based on actual requirements
+  };
+}
+```
+
+## Step 3: Implement Cross-Chain Purchase Flow
+
+```typescript
+// This function handles the entire process of bridging funds and buying an NFT
+async function buyNFTFromAnyChain(userEOA: string, depositChainId: number) {
+  // Get the universal deposit address for the user
+  const universalAddress = await createUniversalDepositAddress(userEOA);
+  
+  // Check if the user has sufficient balance on the deposit chain
+  const balance = await klasterSDK.getBalance(universalAddress, depositChainId);
+  if (balance < NFT_PRICE) {
+    throw new Error('Insufficient balance for NFT purchase');
+  }
+
+  // Encode the transaction for bridging funds from the deposit chain to Base
+  const bridgeTx = await encodeBridgeTransaction(universalAddress, depositChainId, NFT_PRICE);
+
+  // Encode the transaction for buying the NFT on Base
+  const buyNFTTx = encodeBuyNFTTransaction();
+
+  // Create an Interchain Transaction (iTx) that combines bridging and NFT purchase
+  const iTx: InterchainTransaction = {
+    actions: [
+      { txs: [bridgeTx], chainId: depositChainId }, // Bridge action on deposit chain
+      { txs: [buyNFTTx], chainId: base.id }         // Buy NFT action on Base
+    ],
+    // Specify how gas fees will be paid (using ETH on the deposit chain in this example)
+    paymentInfo: await klasterSDK.encodeTxFee(`${depositChainId}-eth`)
+  };
+
+  // Get a quote for the Interchain Transaction
+  const quote = await klasterSDK.getQuote(iTx);
+  
+  // Sign the quote using the user's EOA
+  const signedHash = await klasterSDK.signQuote(quote.itxHash, userEOA);
+  
+  // Execute the Interchain Transaction
+  const result = await klasterSDK.execute(quote, signedHash);
+
+  return result;
+}
+
+// Helper function to encode the bridge transaction using Across protocol
+async function encodeBridgeTransaction(from: string, fromChainId: number, amount: bigint) {
+  // Get a quote from the Across API for bridging funds
+  const acrossApiUrl = 'https://across.to/api/quote';
+  const quoteResponse = await axios.get(acrossApiUrl, {
+    params: {
+      fromChain: fromChainId,
+      toChain: base.id,
+      fromToken: '0x0000000000000000000000000000000000000000', // ETH address
+      toToken: '0x0000000000000000000000000000000000000000', // ETH address
+      amount: amount.toString(),
+      fromAddress: from,
+      toAddress: from,
+      enableBoost: false
+    }
+  });
+
+  const quoteData = quoteResponse.data;
+
+  // Encode the deposit function call for the Across bridge
+  const bridgeData = encodeFunctionData({
+    abi: [{
+      inputs: [
+        { name: 'recipient', type: 'address' },
+        { name: 'destinationChainId', type: 'uint256' },
+        { name: 'relayerFeePct', type: 'uint256' }
+      ],
+      name: 'deposit',
+      outputs: [],
+      stateMutability: 'payable',
+      type: 'function'
+    }],
+    functionName: 'deposit',
+    args: [from, BigInt(base.id), BigInt(quoteData.relayerFee.percentage)]
+  });
+
+  // Return the bridge transaction object
+  return {
+    to: quoteData.spokenContractAddress,
+    data: bridgeData,
+    value: amount,
+    gasLimit: parseUnits('500000', 0) // Estimated gas limit for bridging, adjust as needed
+  };
+}
+```
+
+## Usage
+
+Here's how a user would interact with this system:
+
+```typescript
+// Step 1: Get the universal deposit address for the user
+const userEOA = '0x...'; // User's EOA address
+const depositAddress = await createUniversalDepositAddress(userEOA);
+console.log('Deposit your funds to:', depositAddress);
+
+// Step 2: After the user has deposited funds, they can initiate the NFT purchase
+const depositChainId = 1; // Assuming deposit was made on Ethereum mainnet
+try {
+  const result = await buyNFTFromAnyChain(userEOA, depositChainId);
+  console.log('NFT purchased successfully!', result);
+} catch (error) {
+  console.error('Failed to purchase NFT:', error);
+}
+```
