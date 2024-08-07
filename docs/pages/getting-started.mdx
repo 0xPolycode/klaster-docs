@@ -134,7 +134,7 @@ const transferErc20Tx = encodeTx({
 // executed
 const iTx = encodeItx({
   actions: [{ txs: [transferErc20Tx], chainId: optimism.id }],
-  paymentInfo: await encodeTxFee('optimism-usdc')
+  paymentInfo: await sdk.encodeTxFee('USDC', base.id) // Pay for gas on Base
 })
 ```
 

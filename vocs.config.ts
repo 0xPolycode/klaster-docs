@@ -132,7 +132,10 @@ export default defineConfig({
         }
       ]
     },
-    
+    {
+      text: 'Security Audits',
+      link: '/security-audit'
+    },
     {
       text: 'Supported Networks and Tokens',
       link: '/supported-networks-tokens',
