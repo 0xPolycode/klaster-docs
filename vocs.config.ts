@@ -8,7 +8,20 @@ export default defineConfig({
   sidebar: [
     {
       text: 'Zero to Hero: Getting Started',
-      link: 'getting-started'
+      link: '/getting-started'
+    },
+    {
+      text: 'Account Providers',
+      items: [
+        {
+          text: 'Biconomy',
+          link: '/accounts/biconomy'
+        },
+        {
+          text: 'Safe',
+          link: '/accounts/safe'
+        }
+      ]
     },
     {
       text: 'Security Audits',

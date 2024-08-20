@@ -1,0 +1,18 @@
+## Initializing a Safe Account
+
+To initialize the Klaster SDK with a Safe account you can use the following function:
+
+```ts
+const klaster = await initKlaster({
+  accountInitData: loadSafeV141Account({
+    signers: ["0xSIGNER"],
+    threshold: 1n,
+  }),
+  nodeUrl: "https://<node-url>",
+});
+```
+
+:::info
+The signers information is used to derive the account address. If the signers change, you should keep using the initial
+signers information which was used to create the Safe account.
+:::
