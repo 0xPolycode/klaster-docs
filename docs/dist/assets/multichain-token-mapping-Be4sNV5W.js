@@ -1,0 +1,22 @@
+import{u as a,j as e}from"./index-D75nsQEW.js";const t=void 0;function i(n){const s={a:"a",code:"code",div:"div",em:"em",h2:"h2",h3:"h3",li:"li",p:"p",pre:"pre",span:"span",ul:"ul",...a(),...n.components};return e.jsxs(e.Fragment,{children:[e.jsxs(s.h2,{id:"multichain-token-mapping",children:["Multichain Token Mapping",e.jsx(s.a,{"aria-hidden":"true",tabIndex:"-1",href:"#multichain-token-mapping",children:e.jsx(s.div,{"data-autolink-icon":!0})})]}),`
+`,e.jsx(s.p,{children:`Klaster is a multichain first framework, and as such - all objects within it are made to work in a multichain environment. One
+of the core aspects of working with blockchain system is interacting with tokens. In the EVM ecosystem, these are primarily
+ERC20 or ERC721 tokens (with certain subtypes which also comply to these two interfaces).`}),`
+`,e.jsxs(s.p,{children:[`Since the Klaster SDK wishes to achieve things like unified balances, which can be spent from any chain to any chain - we must
+provide it with a way to `,e.jsx(s.em,{children:"map"})," like tokens to eachother."]}),`
+`,e.jsxs(s.p,{children:["This is achieved through the use of a simple ",e.jsx(s.code,{children:"MultichainTokenMapping"}),` object, which simply maps the addresses of a desired token
+across multiple chains. The way you build a multichain token mapping is the following:`]}),`
+`,e.jsx(s.pre,{className:"shiki shiki-themes github-light github-dark-dimmed",style:{backgroundColor:"#fff","--shiki-dark-bg":"#22272e",color:"#24292e","--shiki-dark":"#adbac7"},tabIndex:"0",children:e.jsxs(s.code,{children:[e.jsxs(s.span,{className:"line",children:[e.jsx(s.span,{style:{color:"#D73A49","--shiki-dark":"#F47067"},children:"const"}),e.jsx(s.span,{style:{color:"#005CC5","--shiki-dark":"#6CB6FF"},children:" mcUSDC"}),e.jsx(s.span,{style:{color:"#D73A49","--shiki-dark":"#F47067"},children:" ="}),e.jsx(s.span,{style:{color:"#6F42C1","--shiki-dark":"#DCBDFB"},children:" buildTokenMapping"}),e.jsx(s.span,{style:{color:"#24292E","--shiki-dark":"#ADBAC7"},children:"(["})]}),`
+`,e.jsxs(s.span,{className:"line",children:[e.jsx(s.span,{style:{color:"#6F42C1","--shiki-dark":"#DCBDFB"},children:"  deployment"}),e.jsx(s.span,{style:{color:"#24292E","--shiki-dark":"#ADBAC7"},children:"(optimism.id, "}),e.jsx(s.span,{style:{color:"#032F62","--shiki-dark":"#96D0FF"},children:'"0x<USDC-ON-OPTIMISM-ADDRESS>"'}),e.jsx(s.span,{style:{color:"#24292E","--shiki-dark":"#ADBAC7"},children:"),"})]}),`
+`,e.jsxs(s.span,{className:"line",children:[e.jsx(s.span,{style:{color:"#6F42C1","--shiki-dark":"#DCBDFB"},children:"  deployment"}),e.jsx(s.span,{style:{color:"#24292E","--shiki-dark":"#ADBAC7"},children:"(base.id, "}),e.jsx(s.span,{style:{color:"#032F62","--shiki-dark":"#96D0FF"},children:'"0x<USDC-ON-OPTIMISM-ADDRESS>"'}),e.jsx(s.span,{style:{color:"#24292E","--shiki-dark":"#ADBAC7"},children:"),"})]}),`
+`,e.jsxs(s.span,{className:"line",children:[e.jsx(s.span,{style:{color:"#6F42C1","--shiki-dark":"#DCBDFB"},children:"  deployment"}),e.jsx(s.span,{style:{color:"#24292E","--shiki-dark":"#ADBAC7"},children:"(arbitrum.id, "}),e.jsx(s.span,{style:{color:"#032F62","--shiki-dark":"#96D0FF"},children:'"0x<USDC-ON-ARBITRUM-ADDRESS>"'}),e.jsx(s.span,{style:{color:"#24292E","--shiki-dark":"#ADBAC7"},children:"),"})]}),`
+`,e.jsx(s.span,{className:"line",children:e.jsx(s.span,{style:{color:"#6A737D","--shiki-dark":"#768390"},children:"  //... add rest of the chains"})}),`
+`,e.jsx(s.span,{className:"line",children:e.jsx(s.span,{style:{color:"#24292E","--shiki-dark":"#ADBAC7"},children:"]);"})})]})}),`
+`,e.jsxs(s.p,{children:["Then, in a function such as ",e.jsx(s.code,{children:"getUnifiedBalance"})," or ",e.jsx(s.code,{children:"encodeBridgingData"})," - you simply pass the ",e.jsx(s.code,{children:"mcUSDC"}),` object and the SDK knows
+how to handle the token on mutliple blockchains.`]}),`
+`,e.jsxs(s.h3,{id:"notes",children:["Notes",e.jsx(s.a,{"aria-hidden":"true",tabIndex:"-1",href:"#notes",children:e.jsx(s.div,{"data-autolink-icon":!0})})]}),`
+`,e.jsx(s.p,{children:"Some of the things to note with the MultichainTokenMapping object:"}),`
+`,e.jsxs(s.ul,{children:[`
+`,e.jsx(s.li,{children:"Only one token deployment is supported per chain"}),`
+`,e.jsx(s.li,{children:"All deployments must have the same number of decimals"}),`
+`]})]})}function o(n={}){const{wrapper:s}={...a(),...n.components};return s?e.jsx(s,{...n,children:e.jsx(i,{...n})}):i(n)}export{o as default,t as frontmatter};
