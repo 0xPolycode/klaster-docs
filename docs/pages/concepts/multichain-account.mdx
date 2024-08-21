@@ -1,0 +1,33 @@
+## Multichain Smart Contract Account
+
+The Klaster account system is built on top of ERC4337 Account Abstraction. Account wise, the main difference between 
+Klaster and other solutions is that Klaster tightly couples deployed Smart Contract Account instances across multiple 
+blockchains.
+
+Simply put, this means that these accounts, deployed on multiple blockchain networks - have the ability to act as a single 
+account. 
+
+Klaster uses the `CREATE2` opcode when deploying accounts. However, some blockchains - notably the zkSync ecosystem - don't 
+derive the accounts the same way that Ethereum does. 
+
+That's why the Klaster SDK uses an internal object called the `MutltichainAccount`, which holds all of the address deployments 
+for all of the blockchains. 
+
+Beyond holding the address deployments, the `MultichainAccount` object holds the `initData` - which was the data used to derive
+the account.
+
+### Deriving accounts
+
+Several key pieces of information determine which account address will be derived when loading a smart contract account:
+
+1. Account vendor (e.g. Biconomy, Safe, ZeroDev, ...)
+2. Factory data (derived from account init parameters, specific for each vendor)
+3. Account blockchain (e.g. ETH, Base, OP, Polygon, AVAX all derive the same, while e.g. zkSync and Abstract derive differently)
+
+The Klaster Node exposes this as a utility endpoint `https://<node-url>/v2/address/{VENDOR_ID}/0xFACTORY_DATA`
+
+The vendor id is a Klaster defined string, definining every supported account vendor (e.g. `SAFE_V141` or `BICO_V2`), while
+factory data is encoded for every vendor, according to their standard.
+
+e.g. for `Safe`, the `FactoryData` is derived from `address[] signers, uint256 threshold, bytes32 salt`, while for Biconomy - 
+it's derived from `address owner, bytes32 salt`

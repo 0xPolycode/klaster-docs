@@ -1,0 +1,547 @@
+# Zero to Hero Guide: Building a Chain Abstracted Application
+
+![Ca](https://i.imgur.com/vHWji39.jpeg)
+
+This will be a zero-to-hero introduction to the Klaster SDK. Here, we will explore all of the main concepts pertaining to
+the development of chain abstracted apps and flows.
+
+In this tutorial, you will get all the required steps to build a chain abstracted application. If you're interested in what
+a chain abstracted application looks like, check out our video on AbstraktAAVE - a chain abstracted implementation of AAVE.
+
+<iframe width="640" height="416" src="https://www.loom.com/embed/e226679dc2c2494bbbf4e880937e3037?sid=ab3b4aae-5cb6-4d85-af70-4ac240c9e296" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+
+You can also use the app yourself at:
+
+https://demo-aave.klaster.io
+
+:::info
+While Klaster works with all major Ethereum SDK providers, such as ethers.js, web3.js and viem - it works best when used
+in conjuction with viem.
+:::
+
+## Install Klaster and Viem
+
+```bash
+npm i klaster-sdk viem
+```
+
+## Create a signer object
+
+Usign viem, create a signer object - which will be used to sign transactions.
+
+```ts
+import {
+  buildMultichainReadonlyClient,
+  buildRpcInfo,
+  initKlaster,
+  klasterNodeHost,
+  loadBicoV2Account,
+} from "klaster-sdk";
+import { createWalletClient, custom, http } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { arbitrum, base, optimism, polygon, scroll } from "viem/chains";
+
+// When in browser environment create a signer
+// which uses the injected wallet (e.g. MetaMask, Rabby, ...)
+const signer = createWalletClient({
+  transport: custom((window as any).ethereum),
+});
+
+// When in non-browser environment you can use private key
+// to sign messages.
+const privateKey = generatePrivateKey();
+const signerAccount = privateKeyToAccount(privateKey);
+const signer = createWalletClient({
+  transport: http(),
+});
+```
+
+## Initialize Klaster SDK
+
+To initialize the Klaster SDK, you must provide it with the following information:
+
+- Klaster Node URL
+- ERC4337 Account Provider
+
+You can use multiple account providers (check documentation reference for supported account providers). In this tutorial,
+we will use the Biconomy account provider:
+
+```ts
+// Fetch the address from viem. You might need to call signer.requestAddresses()
+// depending on your injected Web3 provider.
+const [address] = await signer.getAddresses();
+
+// Initializing the Klaster SDK with Biconomy as the smart contract account
+// provider.
+const klaster = await initKlaster({
+  accountInitData: loadBicoV2Account({
+    owner: address, // Fetch
+  }),
+  nodeUrl: klasterNodeHost.default,
+});
+```
+
+## Initialize a multichain readonly RPC client
+
+In order to achieve certain functionality for chain abstraction, such as getting a unified token balance across chains
+or encoding bridging actions - you will need to have a public RPC for every chain you wish to interact with. Do note
+that this is only a public RPC, you don't need to have the abilty to write to chain - as this is handled by the Klaster nodes.
+
+:::info
+This tutorial project will be using Optimism, Base, Polygon, Arbitrum and Scroll as the underlying blockchains
+:::
+
+```ts
+// Build a multichain client by calling the buildMultichainReadonlyClient
+// and passing the buildRpcInfo objects into the array
+const mcClient = buildMultichainReadonlyClient([
+  buildRpcInfo(optimism.id, "<op-rpc-url>"),
+  buildRpcInfo(base.id, "<base-rpc-url>"),
+]);
+```
+
+Since this is a tutorial project, we can use the `viem` default RPCs.
+
+:::warning
+This is highly discouraged in a production project. Use private RPCs when deploying to production.
+:::
+
+```ts
+// This is a hacky way of doing this, just to get you quickly started
+// with the tutorial. Please don't initialize the client like this in
+// production projects.
+const mcClient = buildMultichainReadonlyClient(
+  [optimism, base, polygon, arbitrum, scroll].map((x) => {
+    return {
+      chainId: x.id,
+      rpcUrl: x.rpcUrls.default.http[0],
+    };
+  })
+);
+```
+
+## Map token deployments across multiple blockchains
+
+As well as working with the Multichain RPC provider, the Klaster SDK works best when provided with `MultichainTokenMapping`
+objects. These objects represent mappings of tokens you consider _equivalent_ across various blockchains. One example would
+be _USDC_ - which is widely deployed by Circle across multiple blockchains.
+
+You can use the Circle [Token Deployments]('https://www.circle.com/en/multi-chain-usdc') to see which address the canonical
+version of which token is deployed to.
+
+However, nothing limits you to using only offical token deployments. If you consider the `axlUSDC` to be equivalent to cannonical
+`USDC` - you can simply map them together and the Klaster SDK will treat them as if they're the same token. You can provide one
+token per chain.
+
+:::info
+One hard requirement for all tokens in a single mapping is that they all must have the same number of decimals.
+:::
+
+```ts
+// Build a token mapping by calling the buildTokenMapping function and passing instances of
+// deployment object into the array. These represent the chainId → address mappings.
+const mcUSDC = buildTokenMapping([
+  deployment(optimism.id, "0x<USDC-ON-OPTIMISM-ADDRESS>"),
+  deployment(base.id, "0x<USDC-ON-OPTIMISM-ADDRESS>"),
+]);
+```
+
+The Klaster SDK exposes some multichain tokens by default. These are `mcUSDC` and `mcUSDT`. They are available to you
+as exported constants. They expose deployments on a lot of blockchains so it's important that you truncate them before
+usage only to blockchains which you use.
+
+:::info
+The default Klaster exported tokens might not fit your project. Please double check the documentation to learn which tokens the Klaster SDK considers to be cannonical and idential to eachother.
+:::
+
+```ts
+// A lambda which intersects the chains available in the
+// token mapping with the ones available in the multichain client.
+// In general, you should not be using this in a production project.
+// Instead, you should create your own tokenmappings by the method shown
+// above.
+const intersectTokenAndClients = (
+  token: MultichainTokenMapping,
+  mcClient: MultichainClient
+) => {
+  return token.filter((deployment) =>
+    mcClient.chainsRpcInfo
+      .map((info) => info.chainId)
+      .includes(deployment.chainId)
+  );
+};
+
+// Store the intersection of the Klaster provided token and the chains your project is using.
+const mUSDC = intersectTokenAndClients(mcUSDC, mcClient);
+```
+
+## Create a Bridging Plugin
+
+Klaster introduces a concept of _Bridging Plugigs_. Yoa can think of them as templates, which the Klaster SDK
+uses to encode and execute a bridging action whenever it needs to. Since Klaster is an agnostic protocol and SDK,
+every function that might require bridging can accept the function of type `BridgePlugin` as input.
+
+For this tutorial, we will be using [Across]('https://across.to').
+In your project, create a new file and give it a name symbolizing its holding the Across bridge plugin.
+
+In order to createa a new BridgePlugin, you can reference this code snippet:
+
+```ts
+export const acrossBridgePlugin: BridgePlugin = async (data) => {
+  // Call Across API to get the bridging fee data, as well as all the other required
+  // inforation about the bridging procedure
+  const feesResponse = await getAcrossSuggestedFees(data);
+
+  // Calculate the amount which you will receive on the destination chain from the
+  // response given by the Across API
+  const outputAmount = data.amount - BigInt(feesResponse.totalRelayFee.total);
+
+  // Encode a transcation approving the Across pool contract to get the
+  // required amount of ERC20 tokens from your accoount.
+  const acrossApproveTx = encodeApproveTx({
+    tokenAddress: data.sourceToken,
+    amount: outputAmount,
+    recipient: feesResponse.spokePoolAddress,
+  });
+
+  // Encode a transaction to call the Across Pool
+  const acrossCallTx = rawTx({
+    to: feesResponse.spokePoolAddress,
+    data: encodeAcrossCallData(data, feesResponse),
+    gasLimit: BigInt(250000),
+  });
+
+  return {
+    // The total amount which the user will receive on the destination chain. This is
+    // used by the SDK to calculate how much funds it can count on after bridging.
+    receivedOnDestination: outputAmount,
+    // The sequence of transactions which need to be executed in order to start the brdging
+    // procedure.
+    txBatch: batchTx(data.sourceChainId, [acrossApproveTx, acrossCallTx]),
+  };
+};
+```
+
+Here, a lot of boilerplate code is hidden behind the `encodeAcrossCallData` and `getAcrossSuggestedFees` functions. You can learn
+how to use Across for bridging by consulting their documentation.
+
+For the purposes of this tutorial, you can copy/paste the entire file. However, there are some prerequisites if you will
+be using this file - and that is installing Axios.
+
+```bash
+npm install axios
+```
+
+```ts filename="across-bridge-plugin.ts"
+import axios from "axios";
+import {
+  Address,
+  batchTx,
+  BridgePlugin,
+  BridgePluginParams,
+  encodeApproveTx,
+  rawTx,
+} from "klaster-sdk";
+import { encodeFunctionData, parseAbi } from "viem";
+
+async function getAcrossSuggestedFees(data: BridgePluginParams) {
+  const client = axios.create({
+    baseURL: "https://app.across.to/api/",
+  });
+
+  const res = await client.get<RelayFeeResponse>(
+    `suggested-fees?inputToken=${data.sourceToken}&outputToken=${data.destinationToken}&
+    originChainId=${data.sourceChainId}&destinationChainId=${data.destinationChainId}&amount=${data.amount}`
+  );
+
+  return res.data;
+}
+
+function encodeAcrossCallData(
+  data: BridgePluginParams,
+  fees: RelayFeeResponse
+) {
+  const abi = parseAbi([
+    "function depositV3(address depositor, address recipient, address inputToken, address outputToken, uint256 inputAmount, uint256 outputAmount, uint256 destinationChainId, address exclusiveRelayer, uint32 quoteTimestamp, uint32 fillDeadline, uint32 exclusivityDeadline, bytes calldata message) external",
+  ]);
+  const outputAmount = data.amount - BigInt(fees.totalRelayFee.total);
+  const fillDeadline = Math.round(Date.now() / 1000) + 300;
+
+  const [srcAddress, destAddress] = data.account.getAddresses([
+    data.sourceChainId,
+    data.destinationChainId,
+  ]);
+  if (!srcAddress || !destAddress) {
+    throw Error(
+      `Can't fetch address from multichain account for ${data.sourceChainId} or ${data.destinationChainId}`
+    );
+  }
+
+  return encodeFunctionData({
+    abi: abi,
+    functionName: "depositV3",
+    args: [
+      srcAddress,
+      destAddress,
+      data.sourceToken,
+      data.destinationToken,
+      data.amount,
+      outputAmount,
+      BigInt(data.destinationChainId),
+      fees.exclusiveRelayer,
+      parseInt(fees.timestamp),
+      fillDeadline,
+      parseInt(fees.exclusivityDeadline),
+      "0x",
+    ],
+  });
+}
+
+export const acrossBridgePlugin: BridgePlugin = async (data) => {
+  const feesResponse = await getAcrossSuggestedFees(data);
+  const outputAmount = data.amount - BigInt(feesResponse.totalRelayFee.total);
+
+  // Approve sourceToken to the Across pool contract (for source chain)
+  const acrossApproveTx = encodeApproveTx({
+    tokenAddress: data.sourceToken,
+    amount: outputAmount,
+    recipient: feesResponse.spokePoolAddress,
+  });
+
+  // Call across pool to initiate bridging
+  const acrossCallTx = rawTx({
+    to: feesResponse.spokePoolAddress,
+    data: encodeAcrossCallData(data, feesResponse),
+    gasLimit: BigInt(250000),
+  });
+
+  return {
+    receivedOnDestination: outputAmount,
+    txBatch: batchTx(data.sourceChainId, [acrossApproveTx, acrossCallTx]),
+  };
+};
+
+interface FeeObject {
+  pct: string;
+  total: string;
+}
+
+interface Limits {
+  minDeposit: string;
+  maxDeposit: string;
+  maxDepositInstant: string;
+  maxDepositShortDelay: string;
+  recommendedDepositInstant: string;
+}
+
+interface RelayFeeResponse {
+  estimatedFillTimeSec: number;
+  capitalFeePct: string;
+  capitalFeeTotal: string;
+  relayGasFeePct: string;
+  relayGasFeeTotal: string;
+  relayFeePct: string;
+  relayFeeTotal: string;
+  lpFeePct: string;
+  timestamp: string;
+  isAmountTooLow: boolean;
+  quoteBlock: string;
+  exclusiveRelayer: Address;
+  exclusivityDeadline: string;
+  spokePoolAddress: Address;
+  totalRelayFee: FeeObject;
+  relayerCapitalFee: FeeObject;
+  relayerGasFee: FeeObject;
+  lpFee: FeeObject;
+  limits: Limits;
+}
+```
+
+## Fetching a Unified Balance
+
+In order to achieve true chain abstraction, the user should be presented with a unified ERC20 balance across
+all of the chains that the app is using.
+
+For example, in the Klaster AbstraktAAVE Demo app, you can see the unified balance:
+![Unified](https://i.imgur.com/IK1gRRt.png)
+
+and then the breakdown per chain:
+<img src="https://i.imgur.com/PJneGgj.png" width="400"></img>
+
+In order to achieve this, you can use the Multichain token and Multichain RPC objects from earlier:
+
+```ts
+const uBalance = await mcClient.getUnifiedErc20Balance({
+  tokenMapping: mUSDC,
+  account: klaster.account,
+});
+
+// Total balance across all used chains, expressed in base units
+uBalance.balance;
+
+// Breakdown of balances across each separate blockchain
+uBalance.breakdown;
+
+// The decimals of the token. In order for tokenMapping to be created,
+// all instances must have the same number of decimals.
+uBalance.decimals;
+```
+
+## Encoding the bridging + execution actions
+
+Okay! Finally our entire setup is complete. This is most definitely one of the more compex cases which Klaster
+covers - a fully chain abstracted app, so the amount of setup is a bit higher. For simpler cases, such as a unified
+deposit address of one-click chekcout flows, a lot of these steps can be omitted.
+
+So, for this demo, we'll say that we want to send the amount we receive from bridging on the destination chain to some other address. This in an intentionally simplistic case, and it could have been solved by just using Across bridge function, but for the purposes of this tutorial it just demonstrates how Klaster works.
+
+::::steps
+
+### Encoding the bridging operations
+
+In your own project, you'll be able to encode arbitrarily complex actions across any number of blockchains. For example, in
+the AAVE case, after a token lands on the destination chain, the `supply` function is called on the AAVE Smart Contract
+
+Anyways let's continue. The SDK is intelligent enough to calculate on its own the required steps to get some amount of
+tokens on some desired destination chain.
+
+Let's assume a following situation. You have:
+
+- 10 USDC on Polygon
+- 20 USDC on Optimism
+- 12 USDC on Scroll
+
+and you're trying to call some function on Base with 35 USDC while having zero USDC on Base. What the Klaster
+SDK will do is calculate a route for bridging your tokens:
+
+e.g. take 20 USDC (total balance) from OP, 12 USDC (total balance) from Scroll and 3 USDC (+ additional for what was lost to
+bridge fees when bridging from chains where you took the total balance) from Polygon and bridge it all to Base. Once the funds
+arrive to Base - call the desired function there!
+
+For most cases, the SDK will be able to calulate te exact routes for bridigng to get your desired outcome. If this is not
+possible, you can always encode them yourself.
+
+The function that does the calcualations is called `encodeBridgingOps`. Simply pass all of the required parameters and as
+an output you'll get a series of steps (EVM Transactions) to be executed on one or more blockchains to get your desired `amoun`
+onto your desired `destinationChain`
+
+```ts
+const bridgingOps = await encodeBridgingOps({
+  tokenMapping: mUSDC,
+  account: klaster.account,
+  amount: uBalance.balance - parseUnits("1", uBalance.decimals), // Don't send entire balance
+  bridgePlugin: acrossBridgePlugin,
+  client: mcClient,
+  destinationChainId: base.id,
+  unifiedBalance: uBalance,
+});
+```
+
+### Encoding the desired action
+
+Now we can encode the `transfer` call on the destination chain. This is done with the call to the Klaster SDK `rawTx` helper
+function:
+
+```ts
+const sendERC20Op = rawTx({
+  gasLimit: 100000n,
+  to: destChainTokenAddress,
+  data: encodeFunctionData({
+    abi: erc20Abi,
+    functionName: "transfer",
+    args: [recipient, bridgingOps.totalReceivedOnDestination],
+  }),
+});
+```
+
+Note one thing here, the usage of `bridgingOps.totalReceivedOnDestination` - this is a variable which has calculated
+how much assets will be available on the destination chain _after_ bridging has completed. If you had zero on the destination
+then this will be the total amount available. If you had `> 0` available then the total available will be
+
+`totalReceivedOnDestination + balanceOnDestination`
+
+### Creating an Interchain Transaction
+
+Now, we can use all of the transactions we have created to encode an _interchain transaction_ or an _iTx_. An iTx is an
+object containing one or more transactions across one or more blockchains. In our case, the iTx will contain
+
+- All necessary approve + bridging transactions calculated by the `encodeBridgingOps` function - on the source chain(s)
+- The send transaction on the destination chain
+
+To create an iTx, we use the helper function `buildItx`.
+
+```ts
+const iTx = buildItx({
+  // BridgingOPs + Execution on the destination chain
+  // added as steps to the iTx
+  steps: bridgingOps.steps.concat(singleTx(destinationChainId, sendERC20Op)),
+  // Klaster works with cross-chain gas abstraction. This instructs the Klaster
+  // nodes to take USDC on Optimism as tx fee payment.
+  feeTx: klaster.encodePaymentFee(optimism.id, "USDC"),
+});
+```
+
+::::
+
+## Executing the Interchain Transaction
+
+Now that we have everything we need encoded in the iTx object, we can send it to the Klaster network for execution.
+
+::::steps
+
+### Getting a quote
+
+Executing an Interchain transaction is a two-step process. The first part of the process is getting a `quote` from the
+Klaster Network. The quote will tell you how much the node wants to charge for the execution of the transaction in the
+token which you set in the `feeTx` field when building an iTx.
+
+To get the quote, call:
+
+```ts
+const quote = await klaster.getQuote(iTx);
+
+// The amount of USD that the node is willing to execute the iTx for
+quote.tokenValue;
+```
+
+### Signing the quote 
+
+If you're satisfied with the quoted execution price, prompt the user to sign the iTx hash. You can get the hash from the
+`quote` object. By signing the iTx hash you're giving the Klaster Nodes approval to execute the transactions within the 
+iTx. This is cryptographically verified by smart contracts on every chain where the data is being executed - so the nodes
+are unable to execute anything without the explicit approval from the user.
+
+:::info
+If you're using `viem` - make sure to use the message → raw to sign. If you pass the message directly into the message object,
+you will get an error that you're using the wrong signature.
+:::
+
+```ts
+const signed = await signer.signMessage({
+  message: {
+    raw: quote.itxHash,
+  },
+  account: signerAccount,
+});
+```
+
+### Sending the iTx for execution
+
+After the user has signed the iTx hash, pass the `QuoteResponse` together with the signed hash to the `execute` function.
+
+```ts
+const result = await klaster.execute(quote, signed)
+```
+
+### Tracking the execution
+
+After the iTx has been received by the Klaster Network, you will receive a result from the `execute` function. In that result,
+you will have the iTx hash. You can go to the Klaster Explorer to check the status of the hash:
+
+`https://explorer.klaster.io/details/{iTxHash}`
+
+::::
+
+## Conclusion
+
+Congrats - you have sucessfully executed your first Interchain Transaction and prepared your project for chain abstraction. 

@@ -1,0 +1,75 @@
+## Bridging Plugins 
+
+The Klaster SDK enables chain abstracted user experiences by performing the bridging of assets in the background. In order to be
+able to perform bridging actions, the Klaster SDK needs to know how to encode them.
+
+The Klaster Bridging Plugins rely on the fact that most bridges are triggered by a simple call to a smart contract on some 
+chain - and as such, can be ecnoded as a series of transactions (e.g. Bridge + Approve). The bridging plugin then 
+returns a series of calls to the blockchain (to be encoded into an `InterchainTransaction`) and how much the user will 
+end up with at the destination chain (after all the bridging and gas fees are paid - this is usually availble information
+before bridging.)
+
+In order to do so, you pass it an instance of a `BridgePlugin`. A `BridgePlugin` is a simple function of type:
+
+```ts
+type BridgePlugin = (BridgePluginParams) => BridgePluginResult
+
+// The BridgePluginParams expose all of the information
+// required to encode a bridging action using some existing
+// bridging provider
+type BridgePluginParams = {
+  sourceChainId: number,
+  destinationChainId: number,
+  account: MutlichainAccount,
+  sourceToken: Address,
+  destinationToken: Address,
+  amount: bigint
+}
+
+// BridgePluginResult tells the Klaster SDK 
+// - how much will be received on the destination chain post bridign
+// - which transactions need to be executed to trigger the bridge
+type BridgePluginResult = {
+  receivedOnDesitnation: bigint,
+  steps: TxBatch[]
+}
+```
+
+An example of a `BridgePlugin` for [Across](https://across.to)
+
+```ts
+export const acrossBridgePlugin: BridgePlugin = async (data) => {
+  // Call Across API to get the bridging fee data, as well as all the other required
+  // inforation about the bridging procedure
+  const feesResponse = await getAcrossSuggestedFees(data);
+
+  // Calculate the amount which you will receive on the destination chain from the
+  // response given by the Across API
+  const outputAmount = data.amount - BigInt(feesResponse.totalRelayFee.total);
+
+  // Encode a transcation approving the Across pool contract to get the
+  // required amount of ERC20 tokens from your accoount.
+  const acrossApproveTx = encodeApproveTx({
+    tokenAddress: data.sourceToken,
+    amount: outputAmount,
+    recipient: feesResponse.spokePoolAddress,
+  });
+
+  // Encode a transaction to call the Across Pool
+  const acrossCallTx = rawTx({
+    to: feesResponse.spokePoolAddress,
+    data: encodeAcrossCallData(data, feesResponse),
+    gasLimit: BigInt(250000),
+  });
+
+  return {
+    // The total amount which the user will receive on the destination chain. This is
+    // used by the SDK to calculate how much funds it can count on after bridging.
+    receivedOnDestination: outputAmount,
+    // The sequence of transactions which need to be executed in order to start the brdging
+    // procedure.
+    txBatch: batchTx(data.sourceChainId, [acrossApproveTx, acrossCallTx]),
+  };
+};
+
+```

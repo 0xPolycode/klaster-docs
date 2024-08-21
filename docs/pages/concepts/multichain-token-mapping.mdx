@@ -1,0 +1,30 @@
+## Multichain Token Mapping
+
+Klaster is a multichain first framework, and as such - all objects within it are made to work in a multichain environment. One
+of the core aspects of working with blockchain system is interacting with tokens. In the EVM ecosystem, these are primarily
+ERC20 or ERC721 tokens (with certain subtypes which also comply to these two interfaces).
+
+Since the Klaster SDK wishes to achieve things like unified balances, which can be spent from any chain to any chain - we must
+provide it with a way to _map_ like tokens to eachother.
+
+This is achieved through the use of a simple `MultichainTokenMapping` object, which simply maps the addresses of a desired token
+across multiple chains. The way you build a multichain token mapping is the following:
+
+```ts
+const mcUSDC = buildTokenMapping([
+  deployment(optimism.id, "0x<USDC-ON-OPTIMISM-ADDRESS>"),
+  deployment(base.id, "0x<USDC-ON-OPTIMISM-ADDRESS>"),
+  deployment(arbitrum.id, "0x<USDC-ON-ARBITRUM-ADDRESS>"),
+  //... add rest of the chains
+]);
+```
+
+Then, in a function such as `getUnifiedBalance` or `encodeBridgingData` - you simply pass the `mcUSDC` object and the SDK knows
+how to handle the token on mutliple blockchains.
+
+### Notes
+
+Some of the things to note with the MultichainTokenMapping object:
+
+- Only one token deployment is supported per chain
+- All deployments must have the same number of decimals

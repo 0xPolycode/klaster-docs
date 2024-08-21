@@ -1,0 +1,15 @@
+## Unified Balance
+
+A `UnifiedBalance` object contains the balance of some `ERC20` token across multiple blockchains. It can be fetched by calling
+the `getUnifiedErc20Balance` function on the `MultichainClient` object. 
+
+```ts
+type UnifiedBalance = {
+  balance: bigint // total balance across all blockchains
+  decimals: number // the number of decimals of the token for which the unified balance is fetched
+  breakdown: { // breakdown of balances across all queried blockchains
+    balance: bigint,
+    chainId: number
+  }[]
+}
+```

@@ -1,0 +1,19 @@
+## Multichain Public Client
+
+In order to achieve certain functionalities, such as fetching a unified multichain balance or encoding bridging strategies - the 
+Klaster SDK must have the ability to read from the blockchains with which your application is interacting with. 
+
+To achieve this, the Klaster SDK counts on the `MultichainClient` object. This object is a simple mapping of `rpcUrl` to
+`chainId`. As of version `0.5.2` - the `MultichainClient` exposes a utility function to read the unified balance of an
+`ERC20` token (provided by a [TokenMapping](./multichain-token-mapping.mdx) object).
+
+A multichain public client can be easily built by leveraging the `buildMultichainReadonlyClient` function.
+
+```ts
+const mcClient = buildMultichainReadonlyClient([
+  buildRpcInfo(optimism.id, 'https://optimism-rpc'),
+  buildRpcInfo(base.id, 'https://base-rpc'),
+  //... add the rest of the chains
+])
+```
+
