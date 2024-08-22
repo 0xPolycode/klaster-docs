@@ -6,6 +6,11 @@ export default defineConfig({
   iconUrl: 'https://i.imgur.com/8ufmgAg.jpeg',
   description: 'Build chain abstracted flows and dApps with ease through Klaster Interchain Commitments. ',
   ogImageUrl: 'https://vocs.dev/api/og?logo=%https://content.pstmn.io/9af7177c-4ec7-40e4-855b-214ea62aaf5f/a2xhc3Rlcl9ib2plLnBuZw==&title=%Klaster&description=%Klaster',
+  head: (
+    <>
+      <script defer data-domain="docs.klaster.io" src="https://plausible.io/js/script.js"></script>
+    </>
+  ),
   sidebar: [
     {
       text: '🚗 Getting Started',
