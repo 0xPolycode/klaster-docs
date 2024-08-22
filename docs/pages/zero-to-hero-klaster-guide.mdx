@@ -181,181 +181,71 @@ Klaster introduces a concept of _Bridging Plugigs_. Yoa can think of them as tem
 uses to encode and execute a bridging action whenever it needs to. Since Klaster is an agnostic protocol and SDK,
 every function that might require bridging can accept the function of type `BridgePlugin` as input.
 
-For this tutorial, we will be using [Across]('https://across.to').
-In your project, create a new file and give it a name symbolizing its holding the Across bridge plugin.
+For this tutorial we have prepared a [LiFi]('https://li.fi') bridging plugin example.
 
-In order to createa a new BridgePlugin, you can reference this code snippet:
+But in general, what is a Klaster Bridging Plugin?
 
-```ts
-export const acrossBridgePlugin: BridgePlugin = async (data) => {
-  // Call Across API to get the bridging fee data, as well as all the other required
-  // inforation about the bridging procedure
-  const feesResponse = await getAcrossSuggestedFees(data);
+It's a simple function which provides a `data` object containing things needed to encode a brdiging transaction such as
+`sourceChainId`, `destinationChainId`, `sourceToken`, `destinationToken`, `amount`, etc... and expects an object in return
+which tells the Klaster SDK i) which transactions need to be executed ii) how much will be received on destination.
 
-  // Calculate the amount which you will receive on the destination chain from the
-  // response given by the Across API
-  const outputAmount = data.amount - BigInt(feesResponse.totalRelayFee.total);
 
-  // Encode a transcation approving the Across pool contract to get the
-  // required amount of ERC20 tokens from your accoount.
-  const acrossApproveTx = encodeApproveTx({
-    tokenAddress: data.sourceToken,
-    amount: outputAmount,
-    recipient: feesResponse.spokePoolAddress,
-  });
+For this tutorial, we can create a LiFi bridging plugin, which will leverage LiFi Aggregation to get us the fastest route
+available for every transfer. Since Klaster is primarily a user experience oriented framework, the speed of execution is 
+paramout!
 
-  // Encode a transaction to call the Across Pool
-  const acrossCallTx = rawTx({
-    to: feesResponse.spokePoolAddress,
-    data: encodeAcrossCallData(data, feesResponse),
-    gasLimit: BigInt(250000),
-  });
-
-  return {
-    // The total amount which the user will receive on the destination chain. This is
-    // used by the SDK to calculate how much funds it can count on after bridging.
-    receivedOnDestination: outputAmount,
-    // The sequence of transactions which need to be executed in order to start the brdging
-    // procedure.
-    txBatch: batchTx(data.sourceChainId, [acrossApproveTx, acrossCallTx]),
-  };
-};
-```
-
-Here, a lot of boilerplate code is hidden behind the `encodeAcrossCallData` and `getAcrossSuggestedFees` functions. You can learn
-how to use Across for bridging by consulting their documentation.
-
-For the purposes of this tutorial, you can copy/paste the entire file. However, there are some prerequisites if you will
-be using this file - and that is installing Axios.
+First, install the `LiFi SDK` 
 
 ```bash
-npm install axios
+npm i @lifi/sdk
 ```
 
-```ts filename="across-bridge-plugin.ts"
-import axios from "axios";
-import {
-  Address,
-  batchTx,
-  BridgePlugin,
-  BridgePluginParams,
-  encodeApproveTx,
-  rawTx,
-} from "klaster-sdk";
-import { encodeFunctionData, parseAbi } from "viem";
+Then write the plugin:
+```ts
+import { getRoutes, RoutesRequest } from "@lifi/sdk";
+import { Address, batchTx, BridgePlugin, rawTx } from "klaster-sdk";
+import { Hex } from "viem";
 
-async function getAcrossSuggestedFees(data: BridgePluginParams) {
-  const client = axios.create({
-    baseURL: "https://app.across.to/api/",
-  });
+export const liFiBrigePlugin: BridgePlugin = async (data) => {
 
-  const res = await client.get<RelayFeeResponse>(
-    `suggested-fees?inputToken=${data.sourceToken}&outputToken=${data.destinationToken}&
-    originChainId=${data.sourceChainId}&destinationChainId=${data.destinationChainId}&amount=${data.amount}`
-  );
+  const routesRequest: RoutesRequest = {
+    fromChainId: data.sourceChainId,
+    toChainId: data.destinationChainId,
+    fromTokenAddress: data.sourceToken,
+    toTokenAddress: data.destinationToken,
+    fromAmount: data.amount.toString(),
+    options: {
+      order: "FASTEST",
+    },
+  };
 
-  return res.data;
-}
+  const result = await getRoutes(routesRequest);
+  const route = result.routes.at(0)
 
-function encodeAcrossCallData(
-  data: BridgePluginParams,
-  fees: RelayFeeResponse
-) {
-  const abi = parseAbi([
-    "function depositV3(address depositor, address recipient, address inputToken, address outputToken, uint256 inputAmount, uint256 outputAmount, uint256 destinationChainId, address exclusiveRelayer, uint32 quoteTimestamp, uint32 fillDeadline, uint32 exclusivityDeadline, bytes calldata message) external",
-  ]);
-  const outputAmount = data.amount - BigInt(fees.totalRelayFee.total);
-  const fillDeadline = Math.round(Date.now() / 1000) + 300;
-
-  const [srcAddress, destAddress] = data.account.getAddresses([
-    data.sourceChainId,
-    data.destinationChainId,
-  ]);
-  if (!srcAddress || !destAddress) {
-    throw Error(
-      `Can't fetch address from multichain account for ${data.sourceChainId} or ${data.destinationChainId}`
-    );
+  if (!route) {
+    throw Error('...');
   }
 
-  return encodeFunctionData({
-    abi: abi,
-    functionName: "depositV3",
-    args: [
-      srcAddress,
-      destAddress,
-      data.sourceToken,
-      data.destinationToken,
-      data.amount,
-      outputAmount,
-      BigInt(data.destinationChainId),
-      fees.exclusiveRelayer,
-      parseInt(fees.timestamp),
-      fillDeadline,
-      parseInt(fees.exclusivityDeadline),
-      "0x",
-    ],
-  });
-}
-
-export const acrossBridgePlugin: BridgePlugin = async (data) => {
-  const feesResponse = await getAcrossSuggestedFees(data);
-  const outputAmount = data.amount - BigInt(feesResponse.totalRelayFee.total);
-
-  // Approve sourceToken to the Across pool contract (for source chain)
-  const acrossApproveTx = encodeApproveTx({
-    tokenAddress: data.sourceToken,
-    amount: outputAmount,
-    recipient: feesResponse.spokePoolAddress,
-  });
-
-  // Call across pool to initiate bridging
-  const acrossCallTx = rawTx({
-    to: feesResponse.spokePoolAddress,
-    data: encodeAcrossCallData(data, feesResponse),
-    gasLimit: BigInt(250000),
-  });
+  const routeSteps = route.steps.map(step => {
+    if(!step.transactionRequest) { throw Error('...') }
+    const { to, gasLimit, data, value} = step.transactionRequest
+    if(!to || !gasLimit || !data || !value) { throw Error('...') } 
+    return rawTx({
+      to: to as Address,
+      gasLimit: BigInt(gasLimit),
+      data: data as Hex,
+      value: BigInt(value)
+    })
+  })
 
   return {
-    receivedOnDestination: outputAmount,
-    txBatch: batchTx(data.sourceChainId, [acrossApproveTx, acrossCallTx]),
-  };
+    receivedOnDestination: BigInt(route.toAmountMin),
+    txBatch: batchTx(data.sourceChainId, routeSteps)
+  }
 };
-
-interface FeeObject {
-  pct: string;
-  total: string;
-}
-
-interface Limits {
-  minDeposit: string;
-  maxDeposit: string;
-  maxDepositInstant: string;
-  maxDepositShortDelay: string;
-  recommendedDepositInstant: string;
-}
-
-interface RelayFeeResponse {
-  estimatedFillTimeSec: number;
-  capitalFeePct: string;
-  capitalFeeTotal: string;
-  relayGasFeePct: string;
-  relayGasFeeTotal: string;
-  relayFeePct: string;
-  relayFeeTotal: string;
-  lpFeePct: string;
-  timestamp: string;
-  isAmountTooLow: boolean;
-  quoteBlock: string;
-  exclusiveRelayer: Address;
-  exclusivityDeadline: string;
-  spokePoolAddress: Address;
-  totalRelayFee: FeeObject;
-  relayerCapitalFee: FeeObject;
-  relayerGasFee: FeeObject;
-  lpFee: FeeObject;
-  limits: Limits;
-}
 ```
+
+It's as simple as that! Now - you Klaster SDK has LiFi support 🥳
 
 ## Fetching a Unified Balance
 
@@ -393,7 +283,7 @@ Okay! Finally our entire setup is complete. This is most definitely one of the m
 covers - a fully chain abstracted app, so the amount of setup is a bit higher. For simpler cases, such as a unified
 deposit address of one-click chekcout flows, a lot of these steps can be omitted.
 
-So, for this demo, we'll say that we want to send the amount we receive from bridging on the destination chain to some other address. This in an intentionally simplistic case, and it could have been solved by just using Across bridge function, but for the purposes of this tutorial it just demonstrates how Klaster works.
+So, for this demo, we'll say that we want to send the amount we receive from bridging on the destination chain to some other address. This in an intentionally simplistic case, and it could have been solved by just using LiFi bridge function, but for the purposes of this tutorial it just demonstrates how Klaster works.
 
 ::::steps
 
@@ -422,7 +312,7 @@ For most cases, the SDK will be able to calulate te exact routes for bridigng to
 possible, you can always encode them yourself.
 
 The function that does the calcualations is called `encodeBridgingOps`. Simply pass all of the required parameters and as
-an output you'll get a series of steps (EVM Transactions) to be executed on one or more blockchains to get your desired `amoun`
+an output you'll get a series of steps (EVM Transactions) to be executed on one or more blockchains to get your desired `amount`
 onto your desired `destinationChain`
 
 ```ts
@@ -430,7 +320,7 @@ const bridgingOps = await encodeBridgingOps({
   tokenMapping: mUSDC,
   account: klaster.account,
   amount: uBalance.balance - parseUnits("1", uBalance.decimals), // Don't send entire balance
-  bridgePlugin: acrossBridgePlugin,
+  bridgePlugin: liFiBrigePlugin,
   client: mcClient,
   destinationChainId: base.id,
   unifiedBalance: uBalance,
