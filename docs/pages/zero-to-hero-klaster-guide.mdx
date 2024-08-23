@@ -279,9 +279,9 @@ uBalance.decimals;
 
 ## Encoding the bridging + execution actions
 
-Okay! Finally our entire setup is complete. This is most definitely one of the more compex cases which Klaster
+Okay! Finally our entire setup is complete. This is most definitely one of the more complex cases which Klaster
 covers - a fully chain abstracted app, so the amount of setup is a bit higher. For simpler cases, such as a unified
-deposit address of one-click chekcout flows, a lot of these steps can be omitted.
+deposit address of one-click checkout flows, a lot of these steps can be omitted.
 
 So, for this demo, we'll say that we want to send the amount we receive from bridging on the destination chain to some other address. This in an intentionally simplistic case, and it could have been solved by just using LiFi bridge function, but for the purposes of this tutorial it just demonstrates how Klaster works.
 
@@ -308,10 +308,10 @@ e.g. take 20 USDC (total balance) from OP, 12 USDC (total balance) from Scroll a
 bridge fees when bridging from chains where you took the total balance) from Polygon and bridge it all to Base. Once the funds
 arrive to Base - call the desired function there!
 
-For most cases, the SDK will be able to calulate te exact routes for bridigng to get your desired outcome. If this is not
+For most cases, the SDK will be able to calculate te exact routes for bridging to get your desired outcome. If this is not
 possible, you can always encode them yourself.
 
-The function that does the calcualations is called `encodeBridgingOps`. Simply pass all of the required parameters and as
+The function that does the calculations is called `encodeBridgingOps`. Simply pass all of the required parameters and as
 an output you'll get a series of steps (EVM Transactions) to be executed on one or more blockchains to get your desired `amount`
 onto your desired `destinationChain`
 
