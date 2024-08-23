@@ -24,27 +24,27 @@ export default defineConfig({
       text: '🧠 SDK Core Concepts',
       items: [
         {
-          text: "→ Interchain Transaction",
+          text: "⠀Interchain Transaction",
           link: '/concepts/interchain-transaction'
         },
         {
-          text: '→ Multichain Smart Contract Account',
+          text: '⠀Multichain Smart Contract Account',
           link: '/concepts/multichain-account'
         },
         {
-          text: '→ Multichain Public Client',
+          text: '⠀Multichain Public Client',
           link: '/concepts/multichain-public-client'
         },
         {
-          text: '→ Multichain Token Mapping',
+          text: '⠀Multichain Token Mapping',
           link: '/concepts/multichain-token-mapping'
         },
         {
-          text: '→ Bridging Plugins',
+          text: '⠀Bridging Plugins',
           link: '/concepts/bridge-plugins'
         },
         {
-          text: '→ Unified Balance',
+          text: '⠀Unified Balance',
           link: '/concepts/unified-balance'
         }
       ]
