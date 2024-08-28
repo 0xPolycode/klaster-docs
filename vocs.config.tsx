@@ -6,45 +6,52 @@ export default defineConfig({
   iconUrl: 'https://i.imgur.com/8ufmgAg.jpeg',
   description: 'Build chain abstracted flows and dApps with ease through Klaster Interchain Commitments. ',
   ogImageUrl: 'https://vocs.dev/api/og?logo=%https://content.pstmn.io/9af7177c-4ec7-40e4-855b-214ea62aaf5f/a2xhc3Rlcl9ib2plLnBuZw==&title=%Klaster&description=%Klaster',
-  head: (
-    <>
-      <script defer data-domain="docs.klaster.io" src="https://plausible.io/js/script.js"></script>
-    </>
-  ),
+  head() {
+    return (
+      <>
+        <script defer data-domain="docs.klaster.io" src="https://plausible.io/js/script.js"></script>
+      </>
+    )
+  }  ,
   sidebar: [
     {
-      text: '🚗 Getting Started',
-      link: '/getting-started'
-    },
-    {
-      text: '🚀 Zero to Hero Klaster Guide',
-      link: '/zero-to-hero-klaster-guide'
+      text: '📝 Tutorials',
+      items: [
+        {
+          text: '• Getting Started',
+          link: '/getting-started'
+        },
+        {
+          text: '• Zero to Hero Klaster Guide',
+          link: '/zero-to-hero-klaster-guide'
+        }
+      ]
     },
     {
       text: '🧠 SDK Core Concepts',
       items: [
         {
-          text: "⠀Interchain Transaction",
+          text: "• Interchain Transaction",
           link: '/concepts/interchain-transaction'
         },
         {
-          text: '⠀Multichain Smart Contract Account',
+          text: '• Multichain Smart Contract Account',
           link: '/concepts/multichain-account'
         },
         {
-          text: '⠀Multichain Public Client',
+          text: '• Multichain Public Client',
           link: '/concepts/multichain-public-client'
         },
         {
-          text: '⠀Multichain Token Mapping',
+          text: '• Multichain Token Mapping',
           link: '/concepts/multichain-token-mapping'
         },
         {
-          text: '⠀Bridging Plugins',
+          text: '• Bridging Plugins',
           link: '/concepts/bridge-plugins'
         },
         {
-          text: '⠀Unified Balance',
+          text: '• Unified Balance',
           link: '/concepts/unified-balance'
         }
       ]
@@ -53,11 +60,11 @@ export default defineConfig({
       text: '👀 Demo Apps',
       items: [
         {
-          text: '→ 🔵 Chain Abstrated AAVE',
+          text: '• Chain Abstrated AAVE ↗',
           link: 'https://demo-aave.klaster.io'
         },
         {
-          text: '→ ⇶ Multichain Disperse (Soon)',
+          text: '• Multichain Disperse (Soon) ↗',
         }
       ]
     },
@@ -65,11 +72,11 @@ export default defineConfig({
       text: '🧾 Account Providers',
       items: [
         {
-          text: '→ 🅱️ Biconomy',
+          text: '• Biconomy',
           link: '/accounts/biconomy'
         },
         {
-          text: '→ 🟢 Safe',
+          text: '• Safe',
           link: '/accounts/safe'
         }
       ]
@@ -78,11 +85,11 @@ export default defineConfig({
       text: '📦 Resources',
       items: [
         {
-          text: '→ 🧬 Whitepaper (🔗)',
+          text: '• Whitepaper ↗',
           link: 'https://klaster.io/assets/wp-new-latex.pdf'
         },
         {
-          text: '→ ⚓️ Klaster Explorer (🔗)',
+          text: '• Klaster Explorer ↗',
           link: 'https://explorer.klaster.io'
         }
       ]
@@ -91,20 +98,20 @@ export default defineConfig({
       text: '🕸️ Protocol',
       items: [
         {
-          text: '→ Understanding Klaster Protocol',
+          text: '• Understanding Klaster Protocol',
           link: '/protocol'
         },
       ]
     },
     {
-      text: 'Additional resources',
+      text: 'ℹ️ Additional resources',
       items: [
         {
-          text: '→ 🥷 Security Audits',
+          text: '• Security Audits',
           link: '/security-audit'
         },
         {
-          text: '→ 🕸️ Supported Networks and Tokens',
+          text: '• Supported Networks and Tokens',
           link: '/supported-networks-tokens',
         }
       ]
