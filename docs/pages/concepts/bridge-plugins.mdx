@@ -51,7 +51,7 @@ export const acrossBridgePlugin: BridgePlugin = async (data) => {
   // required amount of ERC20 tokens from your accoount.
   const acrossApproveTx = encodeApproveTx({
     tokenAddress: data.sourceToken,
-    amount: outputAmount,
+    amount: data.amount,
     recipient: feesResponse.spokePoolAddress,
   });
 
