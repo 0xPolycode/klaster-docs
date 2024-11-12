@@ -177,7 +177,7 @@ const mUSDC = intersectTokenAndClients(mcUSDC, mcClient);
 
 ## Create a Bridging Plugin
 
-Klaster introduces a concept of _Bridging Plugigs_. Yoa can think of them as templates, which the Klaster SDK
+Klaster introduces a concept of _Bridging Plugins_. Yoa can think of them as templates, which the Klaster SDK
 uses to encode and execute a bridging action whenever it needs to. Since Klaster is an agnostic protocol and SDK,
 every function that might require bridging can accept the function of type `BridgePlugin` as input.
 
@@ -185,7 +185,7 @@ For this tutorial we have prepared a [LiFi]('https://li.fi') bridging plugin exa
 
 But in general, what is a Klaster Bridging Plugin?
 
-It's a simple function which provides a `data` object containing things needed to encode a brdiging transaction such as
+It's a simple function which provides a `data` object containing things needed to encode a bridging transaction such as
 `sourceChainId`, `destinationChainId`, `sourceToken`, `destinationToken`, `amount`, etc... and expects an object in return
 which tells the Klaster SDK i) which transactions need to be executed ii) how much will be received on destination.
 
@@ -290,12 +290,11 @@ So, for this demo, we'll say that we want to send the amount we receive from bri
 ### Encoding the bridging operations
 
 In your own project, you'll be able to encode arbitrarily complex actions across any number of blockchains. For example, in
-the AAVE case, after a token lands on the destination chain, the `supply` function is called on the AAVE Smart Contract
-
+the AAVE case, after a token lands on the destination chain, the `supply` function is called on the AAVE Smart Contract.
 Anyways let's continue. The SDK is intelligent enough to calculate on its own the required steps to get some amount of
 tokens on some desired destination chain.
 
-Let's assume a following situation. You have:
+Let's assume the following situation. You have:
 
 - 10 USDC on Polygon
 - 20 USDC on Optimism
@@ -346,7 +345,7 @@ const sendERC20Op = rawTx({
 
 Note one thing here, the usage of `bridgingOps.totalReceivedOnDestination` - this is a variable which has calculated
 how much assets will be available on the destination chain _after_ bridging has completed. If you had zero on the destination
-then this will be the total amount available. If you had `> 0` available then the total available will be
+then this will be the total amount available. If you had `> 0` available then the total available will be:
 
 `totalReceivedOnDestination + balanceOnDestination`
 

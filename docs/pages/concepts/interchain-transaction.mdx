@@ -8,11 +8,11 @@ transactions to be executed on one or more blockchain networks - encoded in a me
 - The leafs of the tree are the transactions contained in the interchain transaction. They define all of the actions which can be
 executed by the iTx.
 
-- The root hash of the merkle tree is called the **Interchain Transcation Hash**
+- The root hash of the merkle tree is called the **Interchain Transaction Hash**
 
 - Every `iTx` is uniquely defined by it's iTx hash
 
-- In order to execute the `iTx`, the user signs the `iTx hash` with their private key and sends the signed hash, togehter with
+- In order to execute the `iTx`, the user signs the `iTx hash` with their private key and sends the signed hash, together with
 the list of the `leaf` transactions - to a Klaster Node.
 
 - The first transaction in the `iTx` is always the transaction fee payment transaction.
