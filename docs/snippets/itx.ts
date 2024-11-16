@@ -3,7 +3,7 @@ import {
   buildItx,
   initKlaster,
   klasterNodeHost,
-  loadBicoV2Account,
+  loadBiconomyV2Account,
   rawTx,
   singleTx,
 } from "klaster-sdk";
@@ -22,7 +22,7 @@ const account = privateKeyToAccount(privKey);
 // [!region initKlaster]
 // Intialize Klaster with a Biconomy account
 const klaster = await initKlaster({
-  accountInitData: loadBicoV2Account({
+  accountInitData: loadBiconomyV2Account({
     owner: account.address,
   }),
   // NodeURL provided by the SDK is hosted by Klaster
