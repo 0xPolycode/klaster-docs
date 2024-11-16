@@ -35,7 +35,7 @@ import {
   buildRpcInfo,
   initKlaster,
   klasterNodeHost,
-  loadBicoV2Account,
+  loadBiconomyV2Account,
 } from "klaster-sdk";
 import { createWalletClient, custom, http } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -74,7 +74,7 @@ const [address] = await signer.getAddresses();
 // Initializing the Klaster SDK with Biconomy as the smart contract account
 // provider.
 const klaster = await initKlaster({
-  accountInitData: loadBicoV2Account({
+  accountInitData: loadBiconomyV2Account({
     owner: address, // Fetch
   }),
   nodeUrl: klasterNodeHost.default,
